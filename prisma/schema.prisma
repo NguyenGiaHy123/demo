@@ -1,0 +1,154 @@
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "darwin", "darwin-arm64"]
+}
+
+model users {
+  id                               String    @id @default(auto()) @map("_id") @db.ObjectId
+  name                             String    @unique
+  password                         String
+  status                           String
+  email                            String    @unique
+  avatar                           String    @default("")
+  isTwoFactorAuthenticationEnabled Boolean   @default(false)
+  twoFactorAuthenticationSecret    String    @default("")
+  createdAt                        DateTime? @default(now())
+  updatedAt                        DateTime? @updatedAt
+  deletedAt                        DateTime?
+  chats                            chats[]
+  channel                          String[]  @db.ObjectId
+  threads                          threads[]
+  emojis                           emojis[]
+  settings                         settings?
+  clouds                           clouds?
+}
+
+model clouds {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  userId    String?   @unique @db.ObjectId
+  user      users?    @relation(fields: [userId], references: [id])
+  thread    threads[]
+}
+
+model settings {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  userId     String?  @unique @db.ObjectId
+  user       users?   @relation(fields: [userId], references: [id])
+  notify     Boolean? @default(true)
+  blockGuest Boolean  @default(false)
+}
+
+model channels {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+  thread        threads[]
+  disableThread Boolean   @default(false)
+  // bookmark    bookmarks[]
+  users         Json[]
+  userCreated   String?   @db.ObjectId
+  timeThread    DateTime? @default(now())
+  blockUser     String[]  @default([])
+}
+
+model chats {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  // bookmark   bookmarks[]
+  thread      threads[]
+  userRequest String?   @db.ObjectId
+  receiveId   String    @db.ObjectId
+  senderId    String?   @db.ObjectId
+  isFriend    Boolean?  @default(false)
+  requestAdd  Boolean?  @default(false)
+  user        users?    @relation(fields: [senderId], references: [id])
+  timeThread  DateTime? @default(now())
+}
+
+model threads {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  isEdited  Boolean?
+  isReply   Boolean?  @default(false)
+  isRecall  Boolean?  @default(false)
+  pin       Boolean?  @default(false)
+  receiveId String?   @db.ObjectId
+  senderId  String?   @db.ObjectId
+  user      users?    @relation(fields: [senderId], references: [id])
+  chatId    String?   @db.ObjectId
+  chats     chats?    @relation(fields: [chatId], references: [id])
+  channelId String?   @db.ObjectId
+  channel   channels? @relation(fields: [channelId], references: [id])
+  cloudsId  String?   @db.ObjectId
+  clouds    clouds?   @relation(fields: [cloudsId], references: [id])
+  stoneId  String   @unique
+  seen     String[] @default([])
+  mentions String[] @default([])
+
+  //self relation
+  threadId String?   @db.ObjectId
+  reply    threads?  @relation("replys", fields: [threadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replys   threads[] @relation("replys")
+
+  replyToId String?   @db.ObjectId
+  replysTo  threads?  @relation("replysTo", fields: [replyToId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replysTos threads[] @relation("replysTo")
+
+  messages messages?
+  emojis   emojis[]
+  files    files[]
+}
+
+model messages {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  message   String
+  type      String    @default("text")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  threadId  String?   @unique @db.ObjectId
+  thread    threads?  @relation(fields: [threadId], references: [id])
+}
+
+model emojis {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  emoji     String
+  quantity  Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  senderId  String?   @db.ObjectId
+  user      users?    @relation(fields: [senderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  threadId  String?   @db.ObjectId
+  thread    threads?  @relation(fields: [threadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("emojis")
+}
+
+model files {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  filename  String
+  path      String
+  size      Int
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  threadId  String?   @db.ObjectId
+  thread    threads?  @relation(fields: [threadId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
